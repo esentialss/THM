@@ -138,6 +138,6 @@ I then executed the backup utility with the **LD_PRELOAD** environment variable 
 
 To verify that the privilege escalation had succeeded, I ran the following command: **id**
 
-After confirming that i had obtained root privileges, i read the **root.txt** flag.
+After confirming that I had obtained root privileges, I read the **root.txt** flag.
 
 <img width="720" height="68" alt="{21ABF58B-2780-4DCC-A293-92E9B71804E0}" src="https://github.com/user-attachments/assets/a5ab476b-5270-4ced-93d8-a924ef4dce53" />
